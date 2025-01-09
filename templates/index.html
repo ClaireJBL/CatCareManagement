@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cat Care Dashboard</title>
+</head>
+<body>
+    <h1>Cat Care Dashboard</h1>
+    <a href="/weight_chart">View Weight Chart</a>
+    <table border="1">
+        <tr>
+            <th>Name</th>
+            <th>Species</th>
+            <th>Date of Birth</th>
+            <th>Weight (kg)</th>
+            <th>Profile Picture</th>
+            <th>Last Nail Cut</th>
+            <th>Last Shower</th>
+        </tr>
+        {% for cat in cats %}
+        <tr>
+            <td>{{ cat['name'] }}</td>
+            <td>{{ cat['species_name'] }}</td>
+            <td>{{ cat['date_of_birth'] }}</td>
+            <td>{{ cat['weight'] }}</td>
+            <td><img src="{{ cat['profile_picture'] }}" alt="{{ cat['name'] }}" width="50"></td>
+            <td>{{ cat['last_nail_cut'] }}</td>
+            <td>{{ cat['last_shower'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+

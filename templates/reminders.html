@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Grooming Reminders</title>
+</head>
+<body>
+    <h1>Grooming Reminders</h1>
+    <table border="1">
+        <tr>
+            <th>Name</th>
+            <th>Last Nail Cut</th>
+        </tr>
+        {% for reminder in reminders %}
+        <tr>
+            <td>{{ reminder['name'] }}</td>
+            <td>{{ reminder['last_nail_cut'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <a href="/">Back to Dashboard</a>
+</body>
+</html>
+

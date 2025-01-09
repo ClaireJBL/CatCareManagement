@@ -1,4 +1,13 @@
+from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for Flask
+import matplotlib.pyplot as plt
+import io
+import base64
+import sys
+
+app = Flask(__name__)
 
 # Connects to the database
 def connect_db():
@@ -7,28 +16,27 @@ def connect_db():
     return conn
 
 # Fetches cat data with proper column aliases
-def fetch_cats():
+@app.route('/')
+def index():
     conn = connect_db()
     cursor = conn.cursor()
-    
-    # Query with column aliases for consistent column names
-    query = """
-    SELECT 
-        cats.name AS name, 
-        cat_species.species_name AS species_name, 
-        cats.weight AS weight
-    FROM cats
-    JOIN cat_species ON cats.species_id = cat_species.species_id
-    """
-    
-    print("Running query...")  # Debugging message
-    cursor.execute(query)  # Execute SQL query
-    cats = cursor.fetchall()  # Fetch results
-    
-    print(f"Fetched {len(cats)} rows")  # Debugging: Check row count
-    
+    cursor.execute("""
+        SELECT 
+            cats.name AS name, 
+            cat_species.species_name AS species_name, 
+            cats.date_of_birth AS dob,
+            cats.weight AS weight, 
+            cats.profile_picture AS picture,
+            grooming.last_nail_cut AS last_nail_cut,
+            grooming.last_shower AS last_shower
+        FROM cats
+        JOIN cat_species ON cats.species_id = cat_species.species_id
+        JOIN grooming ON cats.cat_id = grooming.cat_id
+    """)
+    cats = cursor.fetchall()
     conn.close()
-    return cats
+    return render_template('index.html', cats=cats)
+
 
 
 def add_cat():
@@ -74,7 +82,7 @@ def check_overweight():
     overweight_cats = cursor.fetchall()
     conn.close()
     return overweight_cats
-    
+
 def check_reminders():
     conn = connect_db()
     cursor = conn.cursor()
@@ -89,33 +97,120 @@ def check_reminders():
     conn.close()
     return reminders
 
+@app.route('/reminders')
+def grooming_reminders():
+    conn = connect_db()
+    cursor = conn.cursor()
+    query = """
+    SELECT cats.name, grooming.last_nail_cut 
+    FROM cats 
+    JOIN grooming ON cats.cat_id = grooming.cat_id
+    WHERE grooming.last_nail_cut <= date('now', '-30 days')
+    """
+    cursor.execute(query)
+    reminders = cursor.fetchall()
+    conn.close()
+    return render_template('reminders.html', reminders=reminders)
+
+
+@app.route('/weight_chart')
+def weight_chart():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, weight FROM cats;")
+    data = cursor.fetchall()
+    conn.close()
+
+    names = [row['name'] for row in data]
+    weights = [row['weight'] for row in data]
+
+    plt.figure(figsize=(6, 4))
+    plt.bar(names, weights)
+    plt.xlabel('Cats')
+    plt.ylabel('Weight (kg)')
+    plt.title('Cat Weight Comparison')
+
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    chart_url = base64.b64encode(img.getvalue()).decode()
+    plt.close()
+
+    return f'<img src="data:image/png;base64,{chart_url}">'
+
+
 # Main execution block
 if __name__ == "__main__":
-    while True:
-        print("\n--- Cat Care Management ---")
-        print("1. View All Cats")
-        print("2. Add a New Cat")
-        print("3. Check Overweight Cats")
-        print("4. Check Grooming Reminders")
-        print("5. Exit")
-        choice = input("Enter your choice: ")
-        if choice == "1":
-            cats = fetch_cats()
-            for cat in cats:
-                print(f"{cat['name']} - {cat['species_name']} - {cat['weight']} kg")
-        elif choice == "2":
-            add_cat()
-        elif choice == "3":
-            overweight = check_overweight()
-            for cat in overweight:
-                print(f"{cat['name']} ({cat['species_name']}) is overweight at {cat['weight']} kg")
-        elif choice == "4":
-            reminders = check_reminders()
-            for reminder in reminders:
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "flask":
+        port = 5000  # Default port
+        # Check for a custom port argument
+        if len(sys.argv) > 3 and sys.argv[2] == "--port":
+            port = int(sys.argv[3])  # Use specified port
+        app.run(host='0.0.0.0', port=port, debug=True)
+    else:
+        # CLI mode
+        while True:
+            print("\n--- Cat Care Management ---")
+            print("1. View All Cats")
+            print("2. Add a New Cat")
+            print("3. Check Overweight Cats")
+            print("4. Check Grooming Reminders")
+            print("5. Exit")
+            choice = input("Enter your choice: ")
+            if choice == "1":
+                cats = fetch_cats()
+                for cat in cats:
+                    print(f"{cat['name']} - {cat['species_name']} - {cat['weight']} kg")
+            elif choice == "2":
+                add_cat()
+            elif choice == "3":
+                overweight = check_overweight()
+                for cat in overweight:
+                    print(f"{cat['name']} ({cat['species_name']}) is overweight at {cat['weight']} kg")
+            elif choice == "4":
+                reminders = check_reminders()
+                for reminder in reminders:
                     print(f"{reminder['name']} needs a nail trim (Last done: {reminder['last_nail_cut']})")
-        elif choice == "5":
-            print("Goodbye!")
-            break
-        else:
-            print("Invalid choice. Please try again.")
+            elif choice == "5":
+                print("Goodbye!")
+                break
+            else:
+                print("Invalid choice. Please try again.")
 
+
+"""""
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "flask":
+        # Start Flask Web App
+        app.run(host='0.0.0.0', port=5000, debug=True)
+    else:
+        # Start CLI Mode
+        while True:
+            print("\n--- Cat Care Management ---")
+            print("1. View All Cats")
+            print("2. Add a New Cat")
+            print("3. Check Overweight Cats")
+            print("4. Check Grooming Reminders")
+            print("5. Exit")
+            choice = input("Enter your choice: ")
+            if choice == "1":
+                cats = fetch_cats()
+                for cat in cats:
+                    print(f"{cat['name']} - {cat['species_name']} - {cat['weight']} kg")
+            elif choice == "2":
+                add_cat()
+            elif choice == "3":
+                overweight = check_overweight()
+                for cat in overweight:
+                    print(f"{cat['name']} ({cat['species_name']}) is overweight at {cat['weight']} kg")
+            elif choice == "4":
+                reminders = check_reminders()
+                for reminder in reminders:
+                    print(f"{reminder['name']} needs a nail trim (Last done: {reminder['last_nail_cut']})")
+            elif choice == "5":
+                print("Goodbye!")
+                break
+            else:
+                print("Invalid choice. Please try again.")
+"""
